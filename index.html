@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Rota Course Planner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: registrar workbench — search rail | weekly timetable | registration cart; second view = 8-semester roadmap */
+:root{
+  --bg:#eef2f4; --surface:#ffffff; --sunk:#e4eaee; --ink:#14212b; --muted:#566573; --line:#d4dde3;
+  --accent:#0d6b73; --accent-ink:#ffffff; --accent-soft:#d7eced;
+  --ok:#2c7a49; --ok-soft:#dcefe2; --warn:#a46200; --warn-soft:#fbecd2; --err:#bf3328; --err-soft:#f8dedb;
+  --blk-l:91%; --blk-t:24%; --blk-b:62%;
+  --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --row:50px; --r:10px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f171d; --surface:#16212a; --sunk:#1c2933; --ink:#e3ebf0; --muted:#93a3b0; --line:#2a3a46;
+  --accent:#4fb3ba; --accent-ink:#06191b; --accent-soft:#163a3e;
+  --ok:#6cc08b; --ok-soft:#173326; --warn:#e6a64a; --warn-soft:#3a2a12; --err:#f07a6e; --err-soft:#3c1b18;
+  --blk-l:24%; --blk-t:88%; --blk-b:52%; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f171d; --surface:#16212a; --sunk:#1c2933; --ink:#e3ebf0; --muted:#93a3b0; --line:#2a3a46;
+  --accent:#4fb3ba; --accent-ink:#06191b; --accent-soft:#163a3e;
+  --ok:#6cc08b; --ok-soft:#173326; --warn:#e6a64a; --warn-soft:#3a2a12; --err:#f07a6e; --err-soft:#3c1b18;
+  --blk-l:24%; --blk-t:88%; --blk-b:52%; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--f-body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px;padding-block:18px 14px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.brand{font-family:var(--f-display);font-weight:800;font-size:26px;letter-spacing:-.02em;display:flex;align-items:baseline;gap:10px}
+.brand small{font:500 12px var(--f-mono);color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.who{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:13px}
+.who b{color:var(--ink);font-weight:600}
+.tabs{margin-left:auto;display:flex;background:var(--sunk);border-radius:999px;padding:3px}
+.tabs button{border:0;background:none;padding:7px 16px;border-radius:999px;font-weight:500;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgb(0 0 0/.12)}
+.plan{display:grid;grid-template-columns:300px minmax(0,1fr) 310px;gap:16px;align-items:start}
+@media (max-width:1150px){.plan{grid-template-columns:minmax(0,1fr) 300px}.search{grid-column:1/-1}}
+@media (max-width:760px){.plan{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);min-width:0}
+.panel>h2,.ph{font:600 12px var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;padding:14px 16px 10px;display:flex;align-items:center;gap:8px}
+.ph .sp{margin-left:auto}
+/* search */
+.search .inp{margin:0 16px 10px;display:block;width:calc(100% - 32px);padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 12px}
+.chip{border:1px solid var(--line);background:none;border-radius:999px;padding:4px 11px;font-size:13px;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.clist{max-height:640px;overflow:auto;border-top:1px solid var(--line)}
+.course{border-bottom:1px solid var(--line);padding:11px 16px}
+.course .hd{display:flex;gap:8px;align-items:baseline}
+.course .code{font:500 13px var(--f-mono);color:var(--accent)}
+.course .nm{font-weight:600;font-size:14px}
+.course .ects{margin-left:auto;font:12px var(--f-mono);color:var(--muted);white-space:nowrap}
+.badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.bdg{font-size:11.5px;padding:1px 7px;border-radius:5px;background:var(--sunk);color:var(--muted)}
+.bdg.ok{background:var(--ok-soft);color:var(--ok)}.bdg.err{background:var(--err-soft);color:var(--err)}.bdg.warn{background:var(--warn-soft);color:var(--warn)}.bdg.acc{background:var(--accent-soft);color:var(--accent)}
+.secs{display:grid;gap:5px;margin-top:8px}
+.sec{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;font-size:12.5px;padding:6px 8px;border-radius:7px;background:var(--bg);border:1px solid transparent}
+.sec:hover{border-color:var(--accent)}
+.sec .t{color:var(--muted)}
+.seat{font:12px var(--f-mono)}.seat.full{color:var(--err);font-weight:500}
+.add{border:0;border-radius:6px;padding:4px 10px;font-size:12.5px;font-weight:600;background:var(--accent);color:var(--accent-ink)}
+.add.ghost{background:none;border:1px solid var(--line);color:var(--ink)}
+.add.full{background:var(--err-soft);color:var(--err)}
+.add:disabled{opacity:.45;cursor:not-allowed}
+/* timetable */
+.tt-wrap{overflow-x:auto;padding:0 12px 14px}
+.tt{min-width:560px;display:grid;grid-template-columns:52px repeat(5,minmax(0,1fr))}
+.tt .dh{font:600 12px var(--f-mono);text-align:center;padding:6px 0;color:var(--muted);letter-spacing:.06em}
+.times{position:relative}
+.times div{height:var(--row);font:11px var(--f-mono);color:var(--muted);padding-top:2px}
+.day{position:relative;border-left:1px solid var(--line);background:repeating-linear-gradient(to bottom,transparent 0 calc(var(--row) - 1px),var(--line) calc(var(--row) - 1px) var(--row))}
+.blk{position:absolute;border-radius:7px;padding:5px 7px;font-size:11.5px;line-height:1.25;overflow:hidden;background:hsl(var(--h) 55% var(--blk-l));color:hsl(var(--h) 45% var(--blk-t));border-left:4px solid hsl(var(--h) 55% var(--blk-b))}
+.blk b{font:600 11.5px var(--f-mono);display:block}
+.blk .bn{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.blk .bt{opacity:.8;font-family:var(--f-mono);font-size:10.5px}
+.blk.clash{border:2px solid var(--err);border-left-width:4px;background-image:repeating-linear-gradient(135deg,transparent 0 8px,color-mix(in srgb,var(--err) 16%,transparent) 8px 16px)}
+.blk.ghost{background:transparent;border:2px dashed hsl(var(--h) 55% var(--blk-b));opacity:.9}
+.legend{display:flex;gap:16px;flex-wrap:wrap;padding:0 16px 14px;font-size:12.5px;color:var(--muted)}
+.combo{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 16px 12px;padding:10px 12px;background:var(--accent-soft);border-radius:8px;font-size:13.5px}
+.combo .sp{flex:1 1 140px}
+.combo label{display:flex;gap:5px;align-items:center;font-size:12.5px;color:var(--muted)}
+/* cart */
+.meter{padding:0 16px 12px}
+.meter .bar{height:8px;border-radius:9px;background:var(--sunk);overflow:hidden;position:relative}
+.meter .fill{height:100%;background:var(--accent);transition:width .25s}
+.meter .fill.over{background:var(--warn)}
+.meter .lim{position:absolute;top:0;bottom:0;width:2px;background:var(--ink);opacity:.5}
+.meter .lbl{display:flex;justify-content:space-between;font-size:12.5px;margin-top:6px;color:var(--muted)}
+.meter .lbl b{color:var(--ink);font-family:var(--f-mono)}
+.items{border-top:1px solid var(--line)}
+.item{padding:10px 16px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px}
+.item .code{font:500 13px var(--f-mono)}
+.item .x{border:0;background:none;color:var(--muted);font-size:18px;line-height:1;grid-row:span 2;align-self:center;padding:4px}
+.item .sub{font-size:12.5px;color:var(--muted)}
+.item .msg{grid-column:1/-1;font-size:12.5px;margin-top:4px;padding:5px 8px;border-radius:6px}
+.msg.err{background:var(--err-soft);color:var(--err)}.msg.warn{background:var(--warn-soft);color:var(--warn)}
+.cart-foot{padding:14px 16px;display:grid;gap:10px}
+.submit{border:0;border-radius:8px;padding:11px;font-weight:600;background:var(--accent);color:var(--accent-ink)}
+.submit:disabled{background:var(--sunk);color:var(--muted);cursor:not-allowed}
+.note{font-size:12.5px;color:var(--muted)}
+.steps{display:flex;gap:4px;font-size:11.5px}
+.steps span{flex:1;text-align:center;padding:5px 2px;border-radius:5px;background:var(--sunk);color:var(--muted)}
+.steps span.on{background:var(--ok-soft);color:var(--ok);font-weight:600}
+.steps span.cur{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.wl{border-top:1px solid var(--line);padding-bottom:6px}
+.wl .row{display:flex;gap:8px;align-items:center;padding:6px 16px;font-size:13px}
+.wl .pos{font:600 12px var(--f-mono);background:var(--warn-soft);color:var(--warn);border-radius:5px;padding:2px 6px}
+.demo{border:1px dashed var(--line);border-radius:var(--r);padding:10px 14px;margin-top:16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px;color:var(--muted)}
+.demo b{font:600 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase}
+/* dialog */
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:0;width:min(520px,calc(100vw - 32px))}
+dialog::backdrop{background:rgb(10 20 28/.45)}
+.dlg-h{padding:18px 20px 8px}
+.dlg-h h3{font:700 20px var(--f-display);margin:0 0 4px;text-wrap:balance}
+.dlg-b{padding:4px 20px 16px;display:grid;gap:8px}
+.dlg-b h4{margin:10px 0 2px;font:600 11.5px var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.alt{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:9px;font-size:13.5px}
+.alt .t{font-size:12.5px;color:var(--muted)}
+.dlg-f{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px 18px;border-top:1px solid var(--line)}
+/* toast */
+.toasts{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));display:grid;gap:8px;z-index:20;width:min(460px,calc(100vw - 32px))}
+.toast{background:var(--ink);color:var(--bg);border-radius:10px;padding:11px 14px;font-size:13.5px;display:flex;gap:10px;align-items:center;box-shadow:0 8px 24px rgb(0 0 0/.25)}
+.toast .sp{flex:1}
+.toast button{border:0;border-radius:6px;padding:5px 10px;font-weight:600;background:var(--accent);color:var(--accent-ink)}
+/* roadmap */
+.rm-top{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;margin-bottom:16px;align-items:start}
+@media (max-width:900px){.rm-top{grid-template-columns:minmax(0,1fr)}}
+.prog{padding:18px 20px}
+.prog .big{font:800 44px/1 var(--f-display);letter-spacing:-.03em}
+.prog .big small{font:500 16px var(--f-body);color:var(--muted);letter-spacing:0}
+.pbar{height:12px;border-radius:9px;background:var(--sunk);overflow:hidden;display:flex;margin:14px 0 8px}
+.pbar i{display:block;height:100%}
+.pbar .p1{background:var(--ok)}.pbar .p2{background:var(--accent)}
+.facts{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:13px;color:var(--muted)}
+.facts b{color:var(--ink);font-family:var(--f-mono)}
+.recs .r{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;padding:9px 16px;border-top:1px solid var(--line);font-size:13.5px}
+.recs .why{font-size:12px;color:var(--muted)}
+.sems-wrap{overflow-x:auto}
+.sems{display:grid;grid-template-columns:repeat(8,minmax(150px,1fr));gap:10px;min-width:1240px}
+.sem h3{font:600 12px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;display:flex;justify-content:space-between}
+.sem.now h3{color:var(--accent)}
+.rc{border-radius:8px;padding:8px 9px;margin-bottom:6px;font-size:12.5px;border:1px solid var(--line);background:var(--surface)}
+.rc .c{font:500 11.5px var(--f-mono);display:flex;justify-content:space-between}
+.rc.done{background:var(--ok-soft);border-color:transparent}.rc.done .c{color:var(--ok)}
+.rc.fail{background:var(--err-soft);border-color:transparent}.rc.fail .c{color:var(--err)}
+.rc.inplan{border:2px solid var(--accent)}.rc.inplan .c{color:var(--accent)}
+.rc.avail{border-style:dashed}
+.rc.locked{opacity:.55}
+.keys{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted);margin:12px 0}
+.keys i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:5px;border:1px solid var(--line)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">Rota <small>Registration planner · prototype</small></div>
+  <div class="who">
+    <span><b>Demo Student</b> · Mechanical Eng.</span>
+    <span>Term <b class="mono">2026–27 Fall</b></span>
+    <span>GPA <b class="mono">2.84</b></span>
+    <span>Advisor <b>Dr. Selin Aydın</b></span>
+  </div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tab-plan" aria-selected="true" data-v="plan">Weekly plan</button>
+    <button role="tab" id="tab-road" aria-selected="false" data-v="road">Graduation roadmap</button>
+  </div>
+</header>
+
+<main id="v-plan" class="plan">
+  <section class="panel search">
+    <h2>Course catalog <span class="sp" id="cnt"></span></h2>
+    <input class="inp" id="q" type="search" placeholder="Search code, name or instructor" aria-label="Search courses">
+    <div class="chips" id="chips"></div>
+    <div class="clist" id="clist"></div>
+  </section>
+
+  <section class="panel">
+    <div class="ph">Weekly timetable <span class="sp"></span>
+      <button class="add ghost" id="findBtn">Find conflict-free schedules</button></div>
+    <div id="combo"></div>
+    <div class="tt-wrap"><div class="tt" id="tt"></div></div>
+    <div class="legend"><span>Hover a section in the catalog to preview it here.</span><span style="color:var(--err)">Striped = time clash</span></div>
+  </section>
+
+  <aside class="panel">
+    <h2>Registration cart <span class="sp" id="status"></span></h2>
+    <div class="meter" id="meter"></div>
+    <div class="items" id="items"></div>
+    <div class="cart-foot" id="foot"></div>
+    <div class="wl" id="wl"></div>
+  </aside>
+</main>
+
+<main id="v-road" hidden>
+  <div class="rm-top">
+    <section class="panel prog" id="prog"></section>
+    <section class="panel recs"><h2>Recommended this term</h2><div id="recs"></div></section>
+  </div>
+  <div class="keys">
+    <span><i style="background:var(--ok-soft)"></i>Passed</span>
+    <span><i style="background:var(--err-soft)"></i>Failed — retake needed</span>
+    <span><i style="border:2px solid var(--accent)"></i>In this term's plan</span>
+    <span><i style="border-style:dashed"></i>Can take now</span>
+    <span><i style="opacity:.5"></i>Locked by prerequisite</span>
+  </div>
+  <div class="sems-wrap"><div class="sems" id="sems"></div></div>
+</main>
+
+<div class="demo"><b>Demo controls</b>
+  <button class="add ghost" id="dSeat">Simulate a seat opening</button>
+  <button class="add ghost" id="dApprove">Advisor approves</button>
+  <button class="add ghost" id="dReset">Reset demo</button>
+  <span>Sample catalog and student record for the prototype.</span>
+</div>
+
+<dialog id="dlg"></dialog>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+const DAYS=['MON','TUE','WED','THU','FRI'], H0=8, ROWS=9, LIMIT=30;
+// code: [name, ects, prereqs, semester, type]
+const C={
+ MATH1131:['Calculus I',6,[],1],PHYS1101:['General Physics I',6,[],1],CHEM1101:['General Chemistry',5,[],1],ME1101:['Introduction to Mech. Eng.',3,[],1],CE1101:['Computer Programming',4,[],1],ENG1001:['Academic English I',4,[],1],
+ MATH1132:['Calculus II',6,['MATH1131'],2],PHYS1102:['General Physics II',6,['PHYS1101'],2],ME1102:['Technical Drawing',5,[],2],ME1104:['Statics',6,['PHYS1101'],2],ENG1002:['Academic English II',4,['ENG1001'],2],
+ MATH2231:['Differential Equations',6,['MATH1132'],3],ME2201:['Dynamics',6,['ME1104'],3],ME2203:['Thermodynamics I',6,['PHYS1101'],3],ME2205:['Materials Science',5,['CHEM1101'],3],EEE2201:['Electric Circuits',5,['PHYS1102'],3],
+ MATH2232:['Linear Algebra',6,['MATH1132'],4],ME2202:['Strength of Materials',6,['ME1104'],4],ME2204:['Thermodynamics II',6,['ME2203'],4],ME2206:['Manufacturing Processes',5,['ME2205'],4],ME2208:['Computer-Aided Design',5,['ME1102'],4],
+ ME3301:['Fluid Mechanics',6,['ME2203','MATH2231'],5],ME3303:['Machine Elements I',6,['ME2202'],5],ME3305:['System Dynamics',6,['ME2201','MATH2231'],5],ME3307:['Measurement & Instrumentation',5,['EEE2201'],5],IE3301:['Engineering Economy',4,[],5],
+ ME3302:['Heat Transfer',6,['ME3301'],6],ME3304:['Machine Elements II',6,['ME3303'],6],ME3306:['Control Systems',6,['ME3305'],6],ME3308:['Mechanical Vibrations',6,['ME3305'],6],ME3300:['Summer Practice I',5,[],6],
+ ME4401:['Mechanical Design Project I',8,['ME3304'],7],ME4403:['Thermal Systems Design',6,['ME3302'],7],ME4400:['Summer Practice II',5,['ME3300'],7],
+ ME4402:['Senior Design Project',10,['ME4401'],8],
+ ME4411:['Renewable Energy Systems',5,['ME2204'],0,'el'],ME4413:['Mechatronics',5,['ME3306'],0,'el'],ME4415:['Finite Element Methods',5,['ME2202'],0,'el'],ME4417:['HVAC System Design',5,['ME3302'],0,'el'],ME4419:['Automotive Engineering',5,['ME2201'],0,'el'],ME4421:['Robotics',5,['ME3305'],0,'el']
+};
+const ELSLOTS={7:2,8:2};
+// section: id, instructor, room, slots [day,startHour,length], cap, enrolled
+const S0=[
+ ['ME2201-1','Dr. M. Demir','T-104',[[0,10,2],[3,10,1]],60,54],['ME2203-1','Dr. B. Yılmaz','T-201',[[1,8,3]],60,51],
+ ['ME2205-1','Dr. E. Arslan','T-105',[[2,13,3]],55,40],['MATH2231-1','Dr. K. Şen','A-302',[[0,13,2],[2,8,2]],70,66],
+ ['ME3301-1','Dr. O. Çelik','T-202',[[1,13,3]],45,44],['ME3301-2','Dr. O. Çelik','T-202',[[3,13,3]],45,30],
+ ['ME3303-1','Dr. A. Kaya','T-203',[[0,8,2],[4,8,1]],50,41],['ME3305-1','Dr. D. Öztürk','T-204',[[2,10,3]],45,39],
+ ['ME3307-1','Dr. H. Polat','Lab-3',[[1,9,2],[3,15,2]],30,30],['ME3307-2','Dr. H. Polat','Lab-3',[[2,13,2],[4,13,2]],30,22],
+ ['IE3301-1','Dr. N. Koç','B-110',[[4,10,2]],80,62],
+ ['ME4401-1','Dr. A. Kaya','D-Studio',[[0,13,3]],35,28],['ME4401-2','Dr. S. Aydın','D-Studio',[[3,8,3]],35,35],
+ ['ME4403-1','Dr. B. Yılmaz','T-301',[[1,13,3]],40,33],['ME4403-2','Dr. C. Uslu','T-302',[[4,13,3]],40,12],
+ ['ME4400-1','Internship office','—',[],200,140],
+ ['ME4411-1','Dr. G. Erdem','T-303',[[2,9,3]],35,35],['ME4413-1','Dr. D. Öztürk','Lab-1',[[3,13,3]],30,20],
+ ['ME4415-1','Dr. M. Demir','C-Lab',[[0,9,3]],30,26],['ME4417-1','Dr. C. Uslu','T-304',[[2,14,3]],30,9],
+ ['ME4419-1','Dr. T. Aksoy','T-305',[[3,9,3]],40,37],['ME4421-1','Dr. D. Öztürk','Lab-1',[[4,9,3]],25,25]
+];
+const GR=['AA','BA','BB','CB','CC','BB','BA','CB','AA','BB'];
+const done={};let gi=0;
+for(const k in C){const s=C[k][3]; if(s>=1&&s<=6) done[k]=GR[gi++%GR.length];}
+done.ME3306='FF'; delete done.ME3307; // failed Control Systems, skipped Measurement
+const PASS=c=>done[c]&&done[c]!=='FF';
+const course=c=>({code:c,name:C[c][0],ects:C[c][1],pre:C[c][2],sem:C[c][3],el:C[c][4]==='el'});
+let SEC;
+const DEF={cart:['ME4401-1','ME4403-1','ME3307-2','ME4400-1'],wait:[],status:'draft',filter:'rec',q:'',view:'plan'};
+let st;
+function freshSec(){SEC=S0.map(([id,ins,room,sl,cap,enr])=>({id,c:id.split('-')[0],n:+id.split('-')[1],ins,room,sl,cap,enr}));}
+function load(){freshSec();st=JSON.parse(JSON.stringify(DEF));try{const s=JSON.parse(localStorage.getItem('rota')||'null');if(s&&s.cart){Object.assign(st,s);}}catch(e){} st.combos=null;st.preview=null;}
+function save(){try{localStorage.setItem('rota',JSON.stringify({cart:st.cart,wait:st.wait,status:st.status,filter:st.filter,view:st.view}))}catch(e){}}
+const sec=id=>SEC.find(s=>s.id===id);
+const hue=c=>{let h=0;for(const ch of c)h=(h*31+ch.charCodeAt(0))%360;return h};
+const tStr=([d,h,n])=>`${DAYS[d][0]+DAYS[d].slice(1).toLowerCase()} ${String(h).padStart(2,'0')}:30–${String(h+n).padStart(2,'0')}:20`;
+const when=s=>s.sl.length?s.sl.map(tStr).join(', '):'No class hours';
+const ov=(a,b)=>a[0]===b[0]&&a[1]<b[1]+b[2]&&b[1]<a[1]+a[2];
+const clash=(a,b)=>a.sl.some(x=>b.sl.some(y=>ov(x,y)));
+const full=s=>s.enr>=s.cap;
+const missing=c=>C[c][2].filter(p=>!PASS(p));
+const offered=c=>SEC.some(s=>s.c===c);
+const cartSecs=()=>st.cart.map(sec);
+const clashesOf=(s,list=cartSecs())=>list.filter(o=>o.id!==s.id&&clash(s,o));
+const ectsOf=list=>list.reduce((a,s)=>a+C[s.c][1],0);
+const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+
+function toast(msg,act,fn){const t=document.createElement('div');t.className='toast';t.innerHTML=`<span class="sp">${msg}</span>`;
+  if(act){const b=document.createElement('button');b.textContent=act;b.onclick=()=>{fn();t.remove()};t.append(b)}
+  document.getElementById('toasts').append(t);setTimeout(()=>t.remove(),act?9000:3800);}
+
+function touch(){if(st.status!=='draft'){st.status='draft';toast('Plan changed, so the advisor request was withdrawn. Submit again when ready.');}}
+
+function addSection(id,force){
+  const s=sec(id),c=s.c;
+  if(PASS(c)){toast(`${c} is already passed (${done[c]}).`);return}
+  const m=missing(c);
+  if(m.length){toast(`${c} needs ${m.map(x=>x+(done[x]==='FF'?' (failed, FF)':'')).join(', ')} first.`);return}
+  if(full(s)&&!force){openAlts(s);return}
+  touch();st.cart=st.cart.filter(x=>sec(x).c!==c);st.cart.push(id);st.combos=null;
+  const cl=clashesOf(s);
+  if(cl.length) toast(`${c} clashes with ${cl.map(x=>x.c).join(', ')}. Pick another section or use “Find conflict-free schedules”.`);
+  render();
+}
+function removeSec(id){touch();st.cart=st.cart.filter(x=>x!==id);st.combos=null;render();}
+
+/* ---------- full-section assistant ---------- */
+function openAlts(s){
+  const d=document.getElementById('dlg'),c=course(s.c);
+  const others=cartSecs().filter(o=>o.c!==s.c);
+  const same=SEC.filter(o=>o.c===s.c&&o.id!==s.id);
+  const els=c.el?SEC.filter(o=>C[o.c][4]==='el'&&o.c!==s.c&&!full(o)&&!missing(o.c).length&&!PASS(o.c)&&!st.cart.some(x=>sec(x).c===o.c)&&!clashesOf(o,others).length):[];
+  const inWait=st.wait.find(w=>w.id===s.id);
+  const pos=s.c.charCodeAt(4)%4+2;
+  const altRow=(o,label)=>{const cl=clashesOf(o,others),f=full(o);
+    return `<div class="alt"><div><b class="mono">${o.c}-${o.n}</b> ${label||''}<div class="t">${when(o)} · ${o.ins} · <span class="seat ${f?'full':''}">${o.enr}/${o.cap}</span></div>
+    ${f?'<span class="bdg err">Also full</span>':cl.length?`<span class="bdg warn">Clashes with ${cl.map(x=>x.c).join(', ')}</span>`:'<span class="bdg ok">Fits your week</span>'}</div>
+    <button class="add" data-pick="${o.id}" ${f?'disabled':''}>Take it</button></div>`};
+  d.innerHTML=`<div class="dlg-h"><h3>${s.c}-${s.n} is full</h3><div class="note">${c.name} · ${when(s)} · <span class="seat full">${s.enr}/${s.cap} seats</span></div></div>
+   <div class="dlg-b">
+    ${same.length?`<h4>Other sections of ${s.c}</h4>`+same.map(o=>altRow(o)).join(''):`<div class="note">${s.c} has no other section this term.</div>`}
+    ${c.el?`<h4>Electives that fit your week</h4>`+(els.length?els.map(o=>altRow(o,'· '+C[o.c][0])).join(''):'<div class="note">No open elective fits your current week.</div>'):''}
+    <h4>Waitlist</h4>
+    <div class="alt"><div>${inWait?`You are <b>#${inWait.pos}</b> on this waitlist.`:`Join and you would be <b>#${pos}</b>.`}<div class="t">When a seat opens you get 15 minutes to claim it.</div></div>
+     <button class="add ghost" id="joinWl" ${inWait?'disabled':''}>${inWait?'Joined':'Join waitlist'}</button></div>
+   </div>
+   <div class="dlg-f"><button class="add ghost" id="dClose">Close</button></div>`;
+  d.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{d.close();addSection(b.dataset.pick)});
+  d.querySelector('#dClose').onclick=()=>d.close();
+  const j=d.querySelector('#joinWl'); if(j)j.onclick=()=>{st.wait.push({id:s.id,pos});d.close();toast(`Joined the ${s.c}-${s.n} waitlist at #${pos}.`);render()};
+  d.showModal();
+}
+
+/* ---------- conflict-free schedule finder ---------- */
+function findCombos(){
+  const codes=[...new Set(cartSecs().filter(s=>s.sl.length).map(s=>s.c))];
+  const nf=document.getElementById('noFri')?.checked, ne=document.getElementById('noEarly')?.checked;
+  const opts=codes.map(c=>SEC.filter(s=>s.c===c&&(!full(s)||st.cart.includes(s.id))&&!(nf&&s.sl.some(x=>x[0]===4))&&!(ne&&s.sl.some(x=>x[1]===8))));
+  let res=[[]];
+  for(const o of opts){const nx=[];for(const r of res)for(const s of o)if(!r.some(x=>clash(x,s)))nx.push([...r,s]);res=nx;}
+  const score=r=>{const days=new Set(r.flatMap(s=>s.sl.map(x=>x[0])));let gaps=0;
+    for(let d=0;d<5;d++){const hs=r.flatMap(s=>s.sl.filter(x=>x[0]===d));if(hs.length<2)continue;hs.sort((a,b)=>a[1]-b[1]);
+      for(let i=1;i<hs.length;i++)gaps+=Math.max(0,hs[i][1]-(hs[i-1][1]+hs[i-1][2]));}
+    return days.size*10+gaps};
+  res.sort((a,b)=>score(a)-score(b));
+  st.combos={list:res,i:0,nf,ne,keep:cartSecs().filter(s=>!s.sl.length).map(s=>s.id)};
+  if(res.length)applyCombo(0);else render();
+}
+function applyCombo(i){const cb=st.combos;cb.i=(i+cb.list.length)%cb.list.length;touch();st.cart=[...cb.list[cb.i].map(s=>s.id),...cb.keep];render();}
+
+/* ---------- rendering ---------- */
+function renderCatalog(){
+  const chips=[['rec','Recommended'],['all','All'],['el','Electives'],['fit','Fits my week']];
+  document.getElementById('chips').innerHTML=chips.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${st.filter===k}">${l}</button>`).join('');
+  const q=st.q.toLowerCase(),cs=cartSecs();
+  let codes=[...new Set(SEC.map(s=>s.c))];
+  codes=codes.filter(c=>{const s=SEC.filter(x=>x.c===c);
+    if(q&&!(c.toLowerCase().includes(q)||C[c][0].toLowerCase().includes(q)||s.some(x=>x.ins.toLowerCase().includes(q))))return false;
+    if(st.filter==='rec')return !PASS(c)&&!missing(c).length;
+    if(st.filter==='el')return C[c][4]==='el';
+    if(st.filter==='fit')return !PASS(c)&&!missing(c).length&&s.some(x=>!full(x)&&!clashesOf(x,cs.filter(o=>o.c!==c)).length);
+    return true});
+  codes.sort((a,b)=>(PASS(a)-PASS(b))||((C[a][3]||9)-(C[b][3]||9))||a.localeCompare(b));
+  document.getElementById('cnt').textContent=codes.length+' courses';
+  document.getElementById('clist').innerHTML=codes.map(c=>{
+    const k=course(c),m=missing(c),inCart=st.cart.find(x=>sec(x).c===c);
+    const b=[];
+    if(PASS(c))b.push(`<span class="bdg ok">Passed · ${done[c]}</span>`);
+    if(done[c]==='FF')b.push('<span class="bdg err">Retake · FF</span>');
+    if(m.length)b.push(`<span class="bdg err">Needs ${m.join(', ')}</span>`);
+    if(k.el)b.push('<span class="bdg acc">Dept. elective</span>');
+    if(!PASS(c)&&!m.length&&k.sem&&k.sem<7)b.push('<span class="bdg warn">Behind schedule</span>');
+    if(inCart)b.push('<span class="bdg acc">In cart</span>');
+    const secs=PASS(c)||m.length?'':'<div class="secs">'+SEC.filter(s=>s.c===c).map(s=>{
+      const f=full(s),here=st.cart.includes(s.id),w=st.wait.find(x=>x.id===s.id);
+      return `<div class="sec" data-pv="${s.id}"><span class="mono">S${s.n}</span><span class="t">${esc(when(s))}<br>${esc(s.ins)}</span>
+       <span style="text-align:right"><span class="seat ${f?'full':''}">${s.enr}/${s.cap}</span><br>
+       ${here?`<button class="add ghost" data-rm="${s.id}">Remove</button>`:f?`<button class="add full" data-add="${s.id}">${w?'Waitlist #'+w.pos:'Full · options'}</button>`:`<button class="add" data-add="${s.id}">${inCart?'Switch':'Add'}</button>`}</span></div>`}).join('')+'</div>';
+    return `<div class="course"><div class="hd"><span class="code">${c}</span><span class="nm">${esc(k.name)}</span><span class="ects">${k.ects} ECTS</span></div><div class="badges">${b.join('')}</div>${secs}</div>`}).join('')||'<p class="note" style="padding:16px">No course matches. Try another word or the “All” filter.</p>';
+}
+
+function renderGrid(){
+  const tt=document.getElementById('tt'),cs=cartSecs();
+  let h='<div></div>'+DAYS.map(d=>`<div class="dh">${d}</div>`).join('');
+  h+='<div class="times">'+Array.from({length:ROWS},(_,i)=>`<div>${String(H0+i).padStart(2,'0')}:30</div>`).join('')+'</div>';
+  const pv=st.preview&&!st.cart.includes(st.preview)?sec(st.preview):null;
+  for(let d=0;d<5;d++){
+    const blocks=[];
+    cs.forEach(s=>s.sl.forEach(x=>{if(x[0]===d)blocks.push({s,x,clash:clashesOf(s).some(o=>o.sl.some(y=>ov(x,y)))})}));
+    if(pv)pv.sl.forEach(x=>{if(x[0]===d)blocks.push({s:pv,x,ghost:true})});
+    h+='<div class="day" style="height:calc(var(--row)*'+ROWS+')">'+blocks.map(b=>{
+      const grp=blocks.filter(o=>ov(o.x,b.x)),k=grp.indexOf(b),n=grp.length;
+      return `<div class="blk ${b.clash?'clash':''} ${b.ghost?'ghost':''}" style="--h:${hue(b.s.c)};top:calc(var(--row)*${b.x[1]-H0} + 2px);height:calc(var(--row)*${b.x[2]} - 4px);left:calc(${k*100/n}% + 3px);width:calc(${100/n}% - 6px)">
+       <b>${b.s.c}-${b.s.n}</b><span class="bn">${esc(C[b.s.c][0])}</span><span class="bt">${b.s.room}</span></div>`}).join('')+'</div>';
+  }
+  tt.innerHTML=h;
+  const cb=st.combos,el=document.getElementById('combo');
+  el.innerHTML=cb?`<div class="combo">${cb.list.length?`<span class="sp"><b>${cb.list.length}</b> conflict-free ${cb.list.length===1?'schedule':'schedules'} · showing <b>#${cb.i+1}</b> (fewest campus days first)</span>
+    <button class="add ghost" id="cPrev">← Prev</button><button class="add" id="cNext">Next →</button>`:'<span class="sp">No conflict-free combination with these courses and filters. Drop a course or loosen a filter.</span>'}
+    <label><input type="checkbox" id="noFri" ${cb.nf?'checked':''}> Free Fridays</label><label><input type="checkbox" id="noEarly" ${cb.ne?'checked':''}> No 08:30</label>
+    <button class="add ghost" id="cDone">Done</button></div>`:'';
+  if(cb){const g=id=>document.getElementById(id);
+    if(g('cPrev')){g('cPrev').onclick=()=>applyCombo(cb.i-1);g('cNext').onclick=()=>applyCombo(cb.i+1)}
+    g('noFri').onchange=g('noEarly').onchange=findCombos;g('cDone').onclick=()=>{st.combos=null;render()};}
+}
+
+function renderCart(){
+  const cs=cartSecs(),e=ectsOf(cs),max=45;
+  document.getElementById('meter').innerHTML=`<div class="bar"><div class="fill ${e>LIMIT?'over':''}" style="width:${Math.min(100,e/max*100)}%"></div><div class="lim" style="left:${LIMIT/max*100}%"></div></div>
+   <div class="lbl"><span><b>${e}</b> / ${LIMIT} ECTS</span><span>${e>LIMIT?`<span style="color:var(--warn)">+${e-LIMIT} needs overload approval</span>`:`${LIMIT-e} ECTS left`}</span></div>`;
+  let errs=0;
+  document.getElementById('items').innerHTML=cs.map(s=>{const cl=clashesOf(s);errs+=cl.length?1:0;
+    return `<div class="item"><div><span class="code" style="color:hsl(${hue(s.c)} 50% var(--blk-b))">${s.c}-${s.n}</span> <b style="font-size:13.5px">${esc(C[s.c][0])}</b></div>
+     <button class="x" data-rm="${s.id}" aria-label="Remove ${s.c}">×</button>
+     <div class="sub">${esc(when(s))} · ${C[s.c][1]} ECTS</div>
+     ${cl.length?`<div class="msg err">Clashes with ${cl.map(o=>o.c+'-'+o.n+' ('+o.sl.filter(y=>s.sl.some(x=>ov(x,y))).map(tStr).join(', ')+')').join('; ')}</div>`:''}</div>`}).join('')||'<p class="note" style="padding:12px 16px">Your cart is empty. Add sections from the catalog.</p>';
+  const stages=['Draft','Sent to advisor','Approved'],si={draft:0,submitted:1,approved:2}[st.status];
+  document.getElementById('status').innerHTML=`<span class="bdg ${si===2?'ok':si===1?'acc':''}">${stages[si]}</span>`;
+  const blocked=errs>0||!cs.length;
+  document.getElementById('foot').innerHTML=`<div class="steps">${stages.map((s,i)=>`<span class="${i<si||si===2?'on':i===si?'cur':''}">${s}</span>`).join('')}</div>
+   ${st.status==='draft'?`<button class="submit" id="sub" ${blocked?'disabled':''}>${e>LIMIT?'Send to advisor + overload request':'Send to advisor for approval'}</button>
+   <div class="note">${blocked?(errs?`Fix ${errs} time clash${errs>1?'es':''} to send.`:'Add at least one course.'):'All checks passed: no clashes, prerequisites met, seats held.'}</div>`
+   :st.status==='submitted'?`<div class="note">Waiting for Dr. Selin Aydın. Seats are held while the request is open. Changing the plan withdraws it.</div>`
+   :`<div class="note" style="color:var(--ok)">Approved. You are registered for ${cs.length} courses, ${e} ECTS.</div>`}`;
+  const sb=document.getElementById('sub');if(sb)sb.onclick=()=>{st.status='submitted';toast('Sent to Dr. Selin Aydın. You will see the decision here.');render()};
+  document.getElementById('wl').innerHTML=st.wait.length?'<div class="ph">Waitlists</div>'+st.wait.map(w=>{const s=sec(w.id);
+    return `<div class="row"><span class="pos">#${w.pos}</span><span style="flex:1"><b class="mono">${s.c}-${s.n}</b> ${esc(C[s.c][0])}</span><button class="add ghost" data-lw="${w.id}">Leave</button></div>`}).join(''):'';
+}
+
+function renderRoad(){
+  const inPlan=new Set(cartSecs().map(s=>s.c));
+  const earned=Object.keys(done).filter(PASS).reduce((a,c)=>a+C[c][1],0);
+  const planned=[...inPlan].reduce((a,c)=>a+C[c][1],0);
+  const elPassed=Object.keys(done).filter(c=>PASS(c)&&C[c][4]==='el').length;
+  document.getElementById('prog').innerHTML=`<div class="ph" style="padding:0 0 8px">Progress to graduation</div>
+   <div class="big">${earned}<small> / 240 ECTS earned</small></div>
+   <div class="pbar"><i class="p1" style="width:${earned/240*100}%"></i><i class="p2" style="width:${planned/240*100}%"></i></div>
+   <div class="facts"><span>This term's plan <b>+${planned}</b> → <b>${earned+planned}</b></span><span>Dept. electives <b>${elPassed+[...inPlan].filter(c=>C[c][4]==='el').length}/4</b></span>
+   <span>Retakes <b>${Object.values(done).filter(g=>g==='FF').length}</b></span><span>Behind schedule <b>${Object.keys(C).filter(c=>C[c][3]&&C[c][3]<=6&&!PASS(c)).length}</b></span></div>`;
+  const cs=cartSecs();
+  const rec=Object.keys(C).filter(c=>!PASS(c)&&!missing(c).length&&offered(c)&&!inPlan.has(c))
+    .sort((a,b)=>(C[a][3]||9)-(C[b][3]||9)).slice(0,6);
+  const notes=[];
+  if(done.ME3306==='FF')notes.push(`<div class="r"><div><b class="mono">ME3306</b> Control Systems<div class="why">Failed (FF) and only offered in spring. Retake it then: it unlocks ME4413 Mechatronics.</div></div><span class="bdg err">Spring</span></div>`);
+  document.getElementById('recs').innerHTML=rec.map(c=>{const k=course(c);
+    const best=SEC.filter(s=>s.c===c&&!full(s)).sort((a,b)=>clashesOf(a,cs).length-clashesOf(b,cs).length)[0];
+    const why=k.sem&&k.sem<7?`Semester ${k.sem} course you have not passed yet`:k.el?'Elective, prerequisites met':'On track for semester 7';
+    return `<div class="r"><div><b class="mono">${c}</b> ${esc(k.name)}<div class="why">${why} · ${k.ects} ECTS${best&&clashesOf(best,cs).length?' · clashes with your plan':''}</div></div>
+    ${best?`<button class="add" data-add="${best.id}">Add S${best.n}</button>`:`<button class="add full" data-add="${SEC.find(s=>s.c===c).id}">Full</button>`}</div>`}).join('')+notes.join('');
+  let h='';
+  for(let s=1;s<=8;s++){
+    const list=Object.keys(C).filter(c=>C[c][3]===s);
+    const tot=list.reduce((a,c)=>a+C[c][1],0)+(ELSLOTS[s]||0)*5;
+    h+=`<div class="sem ${s===7?'now':''}"><h3><span>Sem ${s}${s===7?' · now':''}</span><span>${tot}</span></h3>`+list.map(c=>{
+      const cls=PASS(c)?'done':done[c]==='FF'?'fail':inPlan.has(c)?'inplan':!missing(c).length&&offered(c)?'avail':missing(c).length?'locked':'';
+      const tag=PASS(c)?done[c]:done[c]==='FF'?'FF':inPlan.has(c)?'PLAN':C[c][1];
+      return `<div class="rc ${cls}"><div class="c"><span>${c}</span><span>${tag}</span></div>${esc(C[c][0])}</div>`}).join('');
+    const els=Object.keys(C).filter(c=>C[c][4]==='el'&&(PASS(c)||inPlan.has(c)));
+    for(let i=0;i<(ELSLOTS[s]||0);i++){const idx=(s===7?0:2)+i,c=els[idx];
+      h+=c?`<div class="rc ${PASS(c)?'done':'inplan'}"><div class="c"><span>${c}</span><span>${PASS(c)?done[c]:'PLAN'}</span></div>${esc(C[c][0])}</div>`
+        :`<div class="rc avail"><div class="c"><span>ELECTIVE</span><span>5</span></div>Dept. Elective ${['I','II','III','IV'][idx]}</div>`;}
+    h+='</div>';
+  }
+  document.getElementById('sems').innerHTML=h;
+}
+
+function render(){
+  document.getElementById('v-plan').hidden=st.view!=='plan';document.getElementById('v-road').hidden=st.view!=='road';
+  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.v===st.view));
+  renderCatalog();renderGrid();renderCart();renderRoad();save();
+}
+
+document.addEventListener('click',e=>{
+  const t=e.target.closest('button');if(!t)return;
+  if(t.dataset.add)addSection(t.dataset.add);
+  else if(t.dataset.rm)removeSec(t.dataset.rm);
+  else if(t.dataset.f){st.filter=t.dataset.f;render()}
+  else if(t.dataset.v){st.view=t.dataset.v;render()}
+  else if(t.dataset.lw){st.wait=st.wait.filter(w=>w.id!==t.dataset.lw);render()}
+});
+document.addEventListener('mouseover',e=>{const p=e.target.closest('[data-pv]');const id=p?p.dataset.pv:null;if(id!==st.preview){st.preview=id;renderGrid()}});
+document.getElementById('q').addEventListener('input',e=>{st.q=e.target.value;renderCatalog()});
+document.getElementById('findBtn').onclick=findCombos;
+document.getElementById('dSeat').onclick=()=>{
+  const w=st.wait[0];
+  if(!w){toast('Join a waitlist first: click a full section such as ME4411 or ME4421.');return}
+  const s=sec(w.id);s.enr=s.cap-1;st.wait.shift();render();
+  toast(`A seat opened in ${s.c}-${s.n} ${C[s.c][0]}. Claim it within 15 minutes.`,'Claim seat',()=>addSection(s.id));
+};
+document.getElementById('dApprove').onclick=()=>{if(st.status!=='submitted'){toast('Send the plan to the advisor first.');return}st.status='approved';toast('Dr. Selin Aydın approved your registration.');render()};
+document.getElementById('dReset').onclick=()=>{try{localStorage.removeItem('rota')}catch(e){}load();document.getElementById('q').value='';render();toast('Demo reset.')};
+load();render();
+</script>
+</body>
+</html>
